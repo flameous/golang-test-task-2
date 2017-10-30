@@ -1,0 +1,33 @@
+{
+  "mappings": {
+    "hotel": {
+      "properties": {
+        "title": {
+          "type": "text",
+          "fields": {
+            "ru": {
+              "type": "text",
+              "analyzer": "russian"
+            },
+            "en": {
+              "type": "text",
+              "analyzer": "english"
+            }
+          }
+        },
+        "description": {
+          "type": "keyword"
+        },
+        "address": {
+          "type": "keyword"
+        },
+        "location": {
+          "type": "geo_point"
+        },
+        "amenities": {
+          "type": "keyword"
+        }
+      }
+    }
+  }
+}
