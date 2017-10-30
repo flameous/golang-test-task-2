@@ -2,12 +2,14 @@ package task
 
 import (
 	"fmt"
-	"reflect"
 	"github.com/gin-gonic/gin"
 	"github.com/olivere/elastic"
 	"context"
 	"net/http"
 	"strconv"
+	"strings"
+	"reflect"
+	"encoding/json"
 )
 
 type Server struct {
@@ -20,30 +22,100 @@ func NewServer(ctx context.Context, c *elastic.Client) *Server {
 }
 
 func (s *Server) searchHotels(c *gin.Context) {
-	var err error
+	var (
+		title, geo, radius string
+		hotels             []*HotelSearch
+		errSearch          error
+	)
 
-	var title, geo, radius string
 	title, ok := c.GetQuery(`title`)
 	if !ok {
-		geo, ok = c.GetQuery(`geo`)
-		radius = c.DefaultQuery(`radius`, `50km`)
-		if !ok {
+		if geo, ok = c.GetQuery(`geo`); !ok {
 			c.String(http.StatusBadRequest, `missing field "title" or "geo"`)
+			return
+		}
+		if radius, ok = c.GetQuery(`radius`); !ok {
+			c.String(http.StatusBadRequest, `missing field "radius"`)
+			return
+		}
+		if _, err := strconv.Atoi(radius); err != nil {
+			c.String(http.StatusBadRequest,
+				fmt.Sprintf(`"radius" field - expect int, found: "%s". err: %v"`, radius, err))
 			return
 		}
 	}
 
-	ids, err := s.getHotelsByTitle(title, geo, radius)
-	if len(ids) == 0 {
-		c.String(http.StatusOK, `not found`)
-		return
+	// todo: сортировка по алфавиту
+	if geo == `` {
+		hotels, errSearch = s.searchHotelsByTitle(title)
+	} else {
+		hotels, errSearch = s.searchHotelsByGeo(geo, radius)
 	}
 
-	if err != nil {
-		c.String(http.StatusInternalServerError, err.Error())
+	if errSearch != nil {
+		c.String(http.StatusInternalServerError, errSearch.Error())
 		return
 	}
-	c.JSON(http.StatusOK, ids)
+	if len(hotels) == 0 {
+		c.String(http.StatusOK, `ничего  не  найдено`)
+		return
+	}
+	c.IndentedJSON(http.StatusOK, hotels)
+}
+
+func (s *Server) searchHotelsByTitle(title string) ([]*HotelSearch, error) {
+	q := elastic.NewMultiMatchQuery(title, []string{`title_ru`, `title_en`}...)
+	q.Fuzziness(`5`)
+	result, err := s.c.Search(`hotels`).
+		Query(q).
+		Do(s.ctx)
+
+	if err != nil {
+		return nil, fmt.Errorf(`elastic: multi-match error: %v`, err)
+	}
+	return parseHotels(result)
+}
+
+func (s *Server) searchHotelsByGeo(geo, radius string) ([]*HotelSearch, error) {
+	arr := strings.Split(geo, ",")
+	if len(arr) != 2 {
+		return nil, fmt.Errorf(`"geo" field format must be "-50, 60"`)
+	}
+
+	lat, err := strconv.ParseFloat(arr[0], 64)
+	if err != nil {
+		return nil, fmt.Errorf(`"geo" field - expect float64, found: "%s". err: %v"`, arr[0], err)
+	}
+	long, err := strconv.ParseFloat(arr[1], 64)
+	if err != nil {
+		return nil, fmt.Errorf(`"geo" field - expect float64, found: "%s". err: %v"`, arr[1], err)
+	}
+
+	q := elastic.NewGeoDistanceQuery(`location`)
+	q.Distance(radius + `km`)
+	q.Lat(lat)
+	q.Lon(long)
+
+	result, err := s.c.Search(`hotels`).
+		Query(q).
+		Do(s.ctx)
+
+	if err != nil {
+		return nil, err
+	}
+	return parseHotels(result)
+}
+
+func parseHotels(r *elastic.SearchResult) ([]*HotelSearch, error) {
+	var hotels []*HotelSearch
+	for _, v := range r.Each(reflect.TypeOf(HotelSearch{})) {
+		if h, ok := v.(HotelSearch); ok {
+			hotels = append(hotels, &h)
+		} else {
+			return nil, fmt.Errorf(`cannot cast data to type "Hotel" - data: %#v`, v)
+		}
+	}
+	return hotels, nil
 }
 
 func (s *Server) getHotel(c *gin.Context) {
@@ -52,41 +124,39 @@ func (s *Server) getHotel(c *gin.Context) {
 		c.String(http.StatusBadRequest, `invalid id: error - `+err.Error())
 		return
 	}
-	h, err := s.getHotelsById(id)
+	h, err := s.getHotelById(id)
 	if err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
 		return
 	}
 	if h == nil {
-		c.String(http.StatusOK, `not found`)
+		c.String(http.StatusOK, `ничего  не  найдено`)
 		return
 	}
-	c.JSON(http.StatusOK, h)
+	c.IndentedJSON(http.StatusOK, h)
 }
 
-func (s *Server) getHotelsByTitle(title, geo, radius string) ([]*Hotel, error) {
-	mmq := elastic.NewMultiMatchQuery(title, []string{`title.ru`, `title.en`}...)
-
-	res, err := s.c.Search(`hotels`).Query(mmq).Do(s.ctx)
+func (s *Server) getHotelById(id int) (*Hotel, error) {
+	result, err := s.c.Get().
+		Index(`hotels`).
+		Id(strconv.Itoa(id)).
+		Do(s.ctx)
 	if err != nil {
-		return nil, fmt.Errorf(`elastic: multi-match error: %v`, err)
+		return nil, err
+	}
+	if result.Source == nil {
+		return nil, fmt.Errorf(`result's source is nil: %#v`, result)
 	}
 
-	for _, v := range res.Each(reflect.TypeOf(`todo`)) {
-		panic(v)
+	h := new(Hotel)
+	if err := json.Unmarshal(*result.Source, h); err != nil {
+		return nil, err
 	}
-	return nil, nil
-}
-
-func (s *Server) getHotelsByGeo(geo, radius string) ([]*Hotel, error) {
-	return nil, nil
-}
-
-func (s *Server) getHotelsById(id int) (*Hotel, error) {
-	return nil, nil
+	return h, nil
 }
 
 func (s *Server) Run() {
+	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 	router.GET(`/searchHotels`, s.searchHotels)
 	router.GET(`/hotels/:id`, s.getHotel)

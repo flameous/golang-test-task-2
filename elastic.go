@@ -1,12 +1,13 @@
 package task
 
 import (
-	`log`
-	`io/ioutil`
-	`os`
-	`github.com/olivere/elastic`
-	`context`
-	`encoding/json`
+	"context"
+	"encoding/json"
+	"github.com/olivere/elastic"
+	"io/ioutil"
+	"log"
+	"os"
+	"strconv"
 )
 
 func InitElasticClient(path string) (context.Context, *elastic.Client) {
@@ -38,7 +39,7 @@ func InitElasticClient(path string) (context.Context, *elastic.Client) {
 		}
 	}
 
-	dataFile, err := os.Open(`data.json`)
+	dataFile, err := os.Open(path + `data.json`)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -52,12 +53,18 @@ func InitElasticClient(path string) (context.Context, *elastic.Client) {
 	if err = json.Unmarshal(b, &hotels); err != nil {
 		log.Fatal(err)
 	}
-	//for _, v := range hotels {
-	//	_, err = client.Index().Index(`hotels`).Type(`hotel`).Id(``).BodyJson(v).Do(ctx)
-	//	if err != nil {
-	//		log.Fatal(err)
-	//	}
-	//}
+	for _, v := range hotels {
+		_, err = client.Index().
+			Index(`hotels`).
+			Type(`hotel`).
+			Id(strconv.FormatUint(v.Id, 10)).
+			BodyJson(v).
+			Do(ctx)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 
 	log.Println(`init elastic client - ok!`)
 	return ctx, client
