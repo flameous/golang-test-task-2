@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"strings"
 	"reflect"
-	"sort"
 )
 
 type ElasticClient struct {
@@ -104,20 +103,29 @@ func (e *ElasticClient) getHotelById(id int) (*Hotel, error) {
 	return h, nil
 }
 
-func (e *ElasticClient) searchHotelsByTitle(title string) (HotelSearchSlice, error) {
+func (e *ElasticClient) searchHotelsByTitle(title string) ([]*HotelSearch, error) {
 	q := elastic.NewMultiMatchQuery(title, []string{`title_ru`, `title_en`}...)
-	q.Fuzziness(`5`)
+
+	titleIsRussian := isRussian(title)
+	var s elastic.Sorter
+	if titleIsRussian {
+		s = elastic.NewFieldSort(`title_ru.raw`)
+	} else {
+		s = elastic.NewFieldSort(`title_en.raw`)
+	}
+
 	result, err := e.c.Search(`hotels`).
 		Query(q).
+		SortBy(s).
 		Do(e.ctx)
 
 	if err != nil {
 		return nil, fmt.Errorf(`elastic: search error: %v`, err)
 	}
-	return parseHotels(result)
+	return parseHotels(result, titleIsRussian)
 }
 
-func (e *ElasticClient) searchHotelsByGeo(geo, radius string) (HotelSearchSlice, error) {
+func (e *ElasticClient) searchHotelsByGeo(geo, radius string) ([]*HotelSearch, error) {
 	arr := strings.Split(geo, ",")
 	if len(arr) != 2 {
 		return nil, fmt.Errorf(`"geo" field format must be "float,float"`)
@@ -140,23 +148,31 @@ func (e *ElasticClient) searchHotelsByGeo(geo, radius string) (HotelSearchSlice,
 	// fixme: достаются только 10 hit'ов
 	result, err := e.c.Search(`hotels`).
 		Query(q).
+		SortBy(elastic.NewFieldSort(`title_ru.raw`)).
 		Do(e.ctx)
 
 	if err != nil {
 		return nil, fmt.Errorf(`elastic: search error: %v`, err)
 	}
-	return parseHotels(result)
+	return parseHotels(result, true)
 }
 
-func parseHotels(r *elastic.SearchResult) (HotelSearchSlice, error) {
-	var hotels HotelSearchSlice
+func parseHotels(r *elastic.SearchResult, isRussian bool) ([]*HotelSearch, error) {
+	var hotels []*HotelSearch
 	for _, v := range r.Each(reflect.TypeOf(HotelSearch{})) {
 		if h, ok := v.(HotelSearch); ok {
-			hotels = append(hotels, h.prepare())
+			hotels = append(hotels, h.prepare(isRussian))
 		} else {
 			return nil, fmt.Errorf(`cannot cast data to type "Hotel" - data: %#v`, v)
 		}
 	}
-	sort.Sort(hotels)
 	return hotels, nil
+}
+
+func isRussian(title string) bool {
+	if title == `` {
+		return true
+	}
+	r := []rune(title)[0]
+	return 'А' <= r && r <= 'я'
 }

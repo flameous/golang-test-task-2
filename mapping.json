@@ -4,11 +4,17 @@
       "properties": {
         "title_ru": {
           "type": "text",
-          "analyzer": "russian"
+          "analyzer": "russian",
+          "fields": {
+            "raw": {"type": "keyword"}
+          }
         },
         "title_en": {
-          "type": "text",
-          "analyzer": "english"
+          "type": "string",
+          "analyzer": "english",
+          "fields": {
+            "raw": {"type": "keyword"}
+          }
         },
         "location": {
           "type": "geo_point"

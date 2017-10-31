@@ -12,6 +12,8 @@ type Hotel struct {
 	AvailableRooms []AvailableRoom `json:"available_rooms"`
 }
 
+
+// не сделал ли я всё сложнее?
 type HotelSearch struct {
 	Id      uint64 `json:"id"`
 	TitleRu string `json:"title_ru,omitempty"`
@@ -19,18 +21,16 @@ type HotelSearch struct {
 	Title   string `json:"title"`
 }
 
-func (h *HotelSearch) prepare() *HotelSearch {
-	h.Title = `rus: ` + h.TitleRu + `, eng: ` + h.TitleEn
+func (h *HotelSearch) prepare(isRussian bool) *HotelSearch {
+	if isRussian {
+		h.Title = h.TitleRu
+	} else {
+		h.Title = h.TitleEn
+	}
 	h.TitleRu = ``
 	h.TitleEn = ``
 	return h
 }
-
-type HotelSearchSlice []*HotelSearch
-
-func (p HotelSearchSlice) Len() int           { return len(p) }
-func (p HotelSearchSlice) Less(i, j int) bool { return p[i].Title < p[j].Title }
-func (p HotelSearchSlice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
 type Location struct {
 	Lat float64 `json:"lat"`

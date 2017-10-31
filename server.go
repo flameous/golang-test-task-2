@@ -18,7 +18,7 @@ func NewServer(e *ElasticClient) *Server {
 func (s *Server) searchHotels(c *gin.Context) {
 	var (
 		title, geo, radius string
-		hotels             HotelSearchSlice
+		hotels             []*HotelSearch
 		errSearch          error
 	)
 
