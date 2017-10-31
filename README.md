@@ -10,21 +10,21 @@ go run cmd/tests.go
 
 ### implemented:
 1. fuzzy search.
-<br/>
-params: _title_ (string)
-<br/>
-`http://localhost:8080/searchHotels?title=FooBar`
+
+    params: _title_ (string)
+
+    `http://localhost:8080/searchHotels?title=FooBar`
 
 
 2. search by geo.
-<br/>
-params: _geo_ (float,float), _radius_ (float)
-<br/>
-`http://localhost:8080/searchHotels?geo=55.34,-4.32&radius=100`
+
+    params: _geo_ (float,float), _radius_ (float)
+
+    `http://localhost:8080/searchHotels?geo=55.34,-4.32&radius=100`
 
 
 3. get info by id.
-<br/>
-params: _/id_ (int) - in path
-<br/>
-`http://localhost:8080/hotels/1`
+
+    params: _/id_ (int) - in path
+
+    `http://localhost:8080/hotels/1`
