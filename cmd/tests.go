@@ -11,9 +11,10 @@ import (
 func main() {
 	log.SetFlags(log.Lshortfile | log.Lmicroseconds)
 	host := `localhost:8080`
+
 	searchByTitle(host, `альдего`)
 	searchByTitle(host, `Aldego`)
-	searchByTitle(host, `альде`)
+	searchByTitle(host, `Marichalet`)
 	searchByTitle(host, `такого отеля нет!`)
 
 	searchByGeo(host, `53.6,58.5`, `100`)
@@ -21,6 +22,8 @@ func main() {
 	searchByGeo(host, `-20,70`, `1000`)
 
 	getHotelById(host, "1")
+	getHotelById(host, "2")
+	getHotelById(host, "200")
 }
 
 func searchByTitle(host, title string) {
@@ -48,9 +51,7 @@ func searchByTitle(host, title string) {
 func searchByGeo(host, geo, radius string) {
 	v := url.Values{}
 	v.Set(`geo`, geo)
-	if radius != `` {
-		v.Set(`radius`, radius)
-	}
+	v.Set(`radius`, radius)
 	link := url.URL{
 		Scheme:   `http`,
 		Host:     host,
@@ -71,7 +72,7 @@ func searchByGeo(host, geo, radius string) {
 }
 
 func getHotelById(host, id string) {
-	resp, err := http.Get( `http://`+ host + `/hotels/` + id)
+	resp, err := http.Get(fmt.Sprintf(`http://%s/hotels/%s`, host, id))
 	if err != nil {
 		log.Println(err)
 		return
@@ -80,5 +81,5 @@ func getHotelById(host, id string) {
 		defer resp.Body.Close()
 	}
 	b, _ := ioutil.ReadAll(resp.Body)
-	fmt.Printf(`get hotel by id (%s) -- data: %s`+"\n", id, b)
+	fmt.Printf(`get hotel by id %s -- data: %s`+"\n", id, b)
 }

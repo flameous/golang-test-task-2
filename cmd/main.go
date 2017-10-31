@@ -11,7 +11,7 @@ func main() {
 	path := flag.String("path", "./", "path to configs")
 	flag.Parse()
 
-	ctx, client := task.InitElasticClient(*path)
-	server := task.NewServer(ctx, client)
+	e := task.NewtElasticClient(*path)
+	server := task.NewServer(e)
 	server.Run()
 }
