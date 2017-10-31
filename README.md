@@ -3,7 +3,7 @@
 ### run:
 ```bash
 pip3 install -r parser/requirements.txt
-python3 parser/parse_hotel_data.py _link_
+python3 parser/parse_hotel_data.py url.txt
 go run cmd/main.go --path=`pwd`
 go run cmd/tests.go
 ```

@@ -106,10 +106,11 @@ def strip_until_done(s):
 
 
 if __name__ == '__main__':
-    hotel_urls = parse_site_urls(sys.argv[1])
-    hotels = []
+    with open(sys.argv[1]) as f:
+        hotel_urls = parse_site_urls(f.read())
 
+    hotels = []
     pool = Pool(5)
     results = pool.map(get_hotel_data_wrapper, enumerate(hotel_urls))
-    with open('data.json', 'w') as f:
+    with open('./data.json', 'w') as f:
         f.write(json.dumps(results))
